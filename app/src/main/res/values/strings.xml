@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">NotiFilter</string>
+    <string name="tile_add_rule">Filter a notification</string>
+    <string name="tile_toggle">Notification filter</string>
+</resources>
