@@ -27,11 +27,14 @@ import io.github.notifilter.ui.HomeScreen
 import io.github.notifilter.ui.NotiFilterTheme
 import io.github.notifilter.ui.RuleEditor
 import io.github.notifilter.ui.TAB_RECENT
+import io.github.notifilter.ui.TileHint
+import io.github.notifilter.ui.TileHintDialog
 
 class MainActivity : ComponentActivity() {
     private var hasAccess by mutableStateOf(false)
     private var tab by mutableIntStateOf(0)
     private var editing by mutableStateOf<Editing?>(null)
+    private var tileHint by mutableStateOf<TileHint?>(null)
 
     /** Opened from the Quick Settings tile: finish after saving so the user lands back where they were. */
     private var fromTile = false
@@ -53,12 +56,23 @@ class MainActivity : ComponentActivity() {
                         onOpenAccessSettings = ::openAccessSettings,
                         onEditRule = { rule, isNew -> editing = Editing(rule, isNew) },
                         onAddTile = if (Build.VERSION.SDK_INT >= 33) {
-                            { requestAddTile(AddRuleTileService::class.java, R.string.tile_add_rule, R.drawable.ic_tile_add) }
+                            {
+                                requestAddTile(
+                                    AddRuleTileService::class.java, R.string.tile_add_rule, R.drawable.ic_tile_add,
+                                    "When an unwanted notification arrives, tap this tile and pick the notification " +
+                                        "to make a rule that hides it.",
+                                )
+                            }
                         } else {
                             null
                         },
                         onAddPauseTile = if (Build.VERSION.SDK_INT >= 33) {
-                            { requestAddTile(ToggleTileService::class.java, R.string.tile_toggle, R.drawable.ic_tile_filter) }
+                            {
+                                requestAddTile(
+                                    ToggleTileService::class.java, R.string.tile_toggle, R.drawable.ic_tile_filter,
+                                    "Tap this tile to pause or resume filtering. While it's off, no notifications are hidden.",
+                                )
+                            }
                         } else {
                             null
                         },
@@ -78,6 +92,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                 }
+                tileHint?.let { TileHintDialog(it, onDismiss = { tileHint = null }) }
             }
         }
     }
@@ -126,20 +141,28 @@ class MainActivity : ComponentActivity() {
     }
 
     @RequiresApi(33)
-    private fun requestAddTile(service: Class<out TileService>, @StringRes label: Int, @DrawableRes icon: Int) {
+    private fun requestAddTile(service: Class<out TileService>, @StringRes label: Int, @DrawableRes icon: Int, usage: String) {
         getSystemService(StatusBarManager::class.java).requestAddTileService(
             ComponentName(this, service),
             getString(label),
             Icon.createWithResource(this, icon),
             mainExecutor,
         ) { result ->
-            val message = when (result) {
-                StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED -> "Tile added"
-                StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED -> "Tile is already in Quick Settings"
-                StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_NOT_ADDED -> null
-                else -> "Couldn't add the tile. Add it by editing your Quick Settings."
+            // Android puts a requested tile at the end of Quick Settings and apps can't move it,
+            // so explain where to find it rather than leaving the user to hunt for it.
+            when (result) {
+                StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED,
+                StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED -> tileHint = TileHint(
+                    label = getString(label),
+                    usage = usage,
+                    icon = icon,
+                    alreadyAdded = result == StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED,
+                )
+                StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_NOT_ADDED -> Unit
+                else -> Toast.makeText(
+                    this, "Couldn't add the tile. Add it by editing your Quick Settings.", Toast.LENGTH_SHORT,
+                ).show()
             }
-            message?.let { Toast.makeText(this, it, Toast.LENGTH_SHORT).show() }
         }
     }
 
