@@ -1,5 +1,7 @@
 package io.github.notifilter
 
+import android.app.ActivityOptions
+import android.app.PendingIntent
 import android.app.StatusBarManager
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
@@ -76,6 +78,7 @@ class MainActivity : ComponentActivity() {
                         } else {
                             null
                         },
+                        onOpenNotification = ::openFiltered,
                     )
                 } else {
                     BackHandler { editing = null }
@@ -138,6 +141,42 @@ class MainActivity : ComponentActivity() {
         } catch (_: ActivityNotFoundException) {
             startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
         }
+    }
+
+    /**
+     * Opens a filtered notification the way tapping it in the shade would have. Android only lends us
+     * that action while the app is running, so older entries open the notification's app instead.
+     */
+    private fun openFiltered(n: NotificationInfo) {
+        Store.tapAction(n)?.let { action ->
+            try {
+                action.send(this, 0, null, null, null, null, tapActionOptions())
+                return
+            } catch (_: PendingIntent.CanceledException) {
+                // The app withdrew it, e.g. the message was deleted. Opening the app is the next best thing.
+            }
+        }
+        val launch = packageManager.getLaunchIntentForPackage(n.packageName)
+        if (launch != null) {
+            startActivity(launch)
+        } else {
+            Toast.makeText(this, "Couldn't open ${n.appLabel}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /**
+     * Android 14+ only lets another app's PendingIntent start an activity if the sender vouches for it.
+     * We're on screen because the user just tapped Open, so we do.
+     */
+    private fun tapActionOptions(): Bundle? {
+        if (Build.VERSION.SDK_INT < 34) return null
+        val mode = if (Build.VERSION.SDK_INT >= 36) {
+            ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE
+        } else {
+            @Suppress("DEPRECATION")
+            ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+        }
+        return ActivityOptions.makeBasic().setPendingIntentBackgroundActivityStartMode(mode).toBundle()
     }
 
     @RequiresApi(33)

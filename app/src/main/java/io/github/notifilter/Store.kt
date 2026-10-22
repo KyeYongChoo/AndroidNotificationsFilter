@@ -1,5 +1,6 @@
 package io.github.notifilter
 
+import android.app.PendingIntent
 import android.content.Context
 import android.util.AtomicFile
 import android.util.Log
@@ -47,6 +48,15 @@ object Store {
     private val _listenerConnected = MutableStateFlow(false)
     val listenerConnected: StateFlow<Boolean> = _listenerConnected
 
+    /**
+     * What tapping each filtered notification would have opened, so the Filtered tab can open it.
+     * Android only lends these to us in memory, so they're gone once the app's process ends and older
+     * entries fall back to opening the app.
+     */
+    private val tapActions = object : LinkedHashMap<String, PendingIntent>() {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, PendingIntent>) = size > MAX_FILTERED
+    }
+
     @Volatile
     private var compiled: List<CompiledRule> = emptyList()
 
@@ -88,7 +98,11 @@ object Store {
         write(RECENT_FILE, notificationsToJson(_recent.value).toString())
     }
 
-    fun recordFiltered(n: NotificationInfo) {
+    fun recordFiltered(n: NotificationInfo, tapAction: PendingIntent?) {
+        synchronized(tapActions) {
+            tapActions.remove(n.key)
+            if (tapAction != null) tapActions[n.key] = tapAction
+        }
         // An app updating the same notification (e.g. a progress bar) replaces its entry.
         _filtered.update { list -> (listOf(n) + list.filterNot { it.key == n.key }).take(MAX_FILTERED) }
         _recent.update { list -> list.filterNot { it.key == n.key } }
@@ -103,8 +117,12 @@ object Store {
 
     fun clearFiltered() {
         _filtered.value = emptyList()
+        synchronized(tapActions) { tapActions.clear() }
         write(FILTERED_FILE, "[]")
     }
+
+    /** The action tapping [n] would have run, if it was filtered since the app last started. */
+    fun tapAction(n: NotificationInfo): PendingIntent? = synchronized(tapActions) { tapActions[n.key] }
 
     fun exportRules(): String =
         JSONObject().put("version", 1).put("rules", JSONArray(_rules.value.map { it.toJson() })).toString(2)

@@ -8,7 +8,7 @@ A free, open-source Android app that automatically dismisses notifications match
 - **Create rules from the notification shade.** Add the **"Filter a notification"** Quick Settings tile. Pull down the shade, tap the tile, pick the notification you're annoyed by, and you get a pre-filled rule. Save it and the notification is dismissed straight away.
 - **Pause tile.** A second **"Notification filter"** tile turns all filtering on or off. On Android 13+ add it with **⋮ → Add pause tile**; on older versions, edit your Quick Settings panel and drag it in.
 - **Live preview.** While you edit a rule, you see which of your recent notifications it would have caught.
-- **Filtered history.** See what was dismissed and which rule did it.
+- **Filtered history.** See what was dismissed and which rule did it. Tap **Open** to see one you needed after all: recent ones open exactly where the notification would have taken you, older ones open their app.
 - **Export and import** your rules as JSON. Cloud backup is deliberately off (see below), so use this to move rules between phones.
 - Material You design with a dark theme. Supports Android 8.0 (API 26) and newer.
 
@@ -51,7 +51,7 @@ Your notifications are some of the most sensitive data on your phone. NotiFilter
 - **From an APK:** run `aapt2 dump permissions app.apk`, or open the APK in Android Studio (*Build → Analyze APK*) and look at the manifest.
 - **From the source:** it's all here. The whole app is about ten Kotlin files.
 
-One honest caveat: an app without `INTERNET` could in theory pass data to another app through an Intent. NotiFilter only launches Android's own Settings screens and the system file picker you use for export/import. You can confirm that by searching the code for `startActivity` and `launch(`.
+One honest caveat: an app without `INTERNET` could in theory pass data to another app through an Intent. NotiFilter only launches Android's own Settings screens, the system file picker you use for export/import, and, when you tap **Open** in the Filtered tab, the app a hidden notification came from (the same thing tapping the notification would have done). You can confirm that by searching the code for `startActivity`, `send(` and `launch(`.
 
 ## Building
 

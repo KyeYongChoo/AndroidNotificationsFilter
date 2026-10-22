@@ -72,6 +72,7 @@ fun HomeScreen(
     onEditRule: (rule: Rule, isNew: Boolean) -> Unit,
     onAddTile: (() -> Unit)?,
     onAddPauseTile: (() -> Unit)?,
+    onOpenNotification: (NotificationInfo) -> Unit,
 ) {
     val context = LocalContext.current
     val rules by Store.rules.collectAsState()
@@ -170,10 +171,11 @@ fun HomeScreen(
                 )
                 TAB_FILTERED -> NotificationList(
                     items = filtered,
-                    header = "${filtered.size} filtered · tap to see the rule",
+                    header = "${filtered.size} filtered · tap one to see its rule",
                     empty = "Notifications dismissed by your rules will show up here.",
                     onClear = Store::clearFiltered,
                     onClick = { n -> rules.firstOrNull { it.id == n.ruleId }?.let { onEditRule(it, false) } },
+                    onOpen = onOpenNotification,
                 )
             }
         }
@@ -280,6 +282,7 @@ private fun NotificationList(
     empty: String,
     onClear: () -> Unit,
     onClick: (NotificationInfo) -> Unit,
+    onOpen: ((NotificationInfo) -> Unit)? = null,
 ) {
     if (items.isEmpty()) {
         EmptyText(empty)
@@ -294,7 +297,11 @@ private fun NotificationList(
         HorizontalDivider()
         LazyColumn {
             items(sorted, key = { it.key }) { n ->
-                NotificationRow(n, Modifier.clickable { onClick(n) })
+                NotificationRow(
+                    n,
+                    Modifier.clickable { onClick(n) },
+                    trailing = onOpen?.let { open -> { OpenButton(n, onClick = { open(n) }) } },
+                )
                 HorizontalDivider()
             }
         }
@@ -302,9 +309,10 @@ private fun NotificationList(
 }
 
 @Composable
-fun NotificationRow(n: NotificationInfo, modifier: Modifier = Modifier) {
+fun NotificationRow(n: NotificationInfo, modifier: Modifier = Modifier, trailing: (@Composable () -> Unit)? = null) {
     ListItem(
         modifier = modifier,
+        trailingContent = trailing,
         overlineContent = {
             val time = DateUtils.getRelativeTimeSpanString(n.postTime).toString()
             Text(listOfNotNull(n.appLabel, time, n.ruleName?.let { "rule: $it" }).joinToString(" · "), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -314,6 +322,19 @@ fun NotificationRow(n: NotificationInfo, modifier: Modifier = Modifier) {
             { Text(n.text, maxLines = 2, overflow = TextOverflow.Ellipsis) }
         },
     )
+}
+
+/**
+ * Opens a filtered notification. Shown whenever there's somewhere to go: the notification's own tap
+ * action if we still have it, otherwise its app, so users never have to know which one they'll get.
+ */
+@Composable
+private fun OpenButton(n: NotificationInfo, onClick: () -> Unit) {
+    val context = LocalContext.current
+    val canOpen = remember(n.key, n.postTime) {
+        Store.tapAction(n) != null || context.packageManager.getLaunchIntentForPackage(n.packageName) != null
+    }
+    if (canOpen) TextButton(onClick = onClick) { Text("Open") }
 }
 
 @Composable
