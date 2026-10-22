@@ -8,12 +8,15 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.service.quicksettings.TileService
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.annotation.DrawableRes
 import androidx.annotation.RequiresApi
+import androidx.annotation.StringRes
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -49,7 +52,16 @@ class MainActivity : ComponentActivity() {
                         onTabChange = { tab = it },
                         onOpenAccessSettings = ::openAccessSettings,
                         onEditRule = { rule, isNew -> editing = Editing(rule, isNew) },
-                        onAddTile = if (Build.VERSION.SDK_INT >= 33) ::requestAddTile else null,
+                        onAddTile = if (Build.VERSION.SDK_INT >= 33) {
+                            { requestAddTile(AddRuleTileService::class.java, R.string.tile_add_rule, R.drawable.ic_tile_add) }
+                        } else {
+                            null
+                        },
+                        onAddPauseTile = if (Build.VERSION.SDK_INT >= 33) {
+                            { requestAddTile(ToggleTileService::class.java, R.string.tile_toggle, R.drawable.ic_tile_filter) }
+                        } else {
+                            null
+                        },
                     )
                 } else {
                     BackHandler { editing = null }
@@ -114,11 +126,11 @@ class MainActivity : ComponentActivity() {
     }
 
     @RequiresApi(33)
-    private fun requestAddTile() {
+    private fun requestAddTile(service: Class<out TileService>, @StringRes label: Int, @DrawableRes icon: Int) {
         getSystemService(StatusBarManager::class.java).requestAddTileService(
-            ComponentName(this, AddRuleTileService::class.java),
-            getString(R.string.tile_add_rule),
-            Icon.createWithResource(this, R.drawable.ic_tile_add),
+            ComponentName(this, service),
+            getString(label),
+            Icon.createWithResource(this, icon),
             mainExecutor,
         ) { result ->
             val message = when (result) {

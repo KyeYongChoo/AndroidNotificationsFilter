@@ -71,6 +71,7 @@ fun HomeScreen(
     onOpenAccessSettings: () -> Unit,
     onEditRule: (rule: Rule, isNew: Boolean) -> Unit,
     onAddTile: (() -> Unit)?,
+    onAddPauseTile: (() -> Unit)?,
 ) {
     val context = LocalContext.current
     val rules by Store.rules.collectAsState()
@@ -107,6 +108,12 @@ fun HomeScreen(
                             DropdownMenuItem(
                                 text = { Text("Add Quick Settings tile") },
                                 onClick = { menuOpen = false; onAddTile() },
+                            )
+                        }
+                        if (onAddPauseTile != null) {
+                            DropdownMenuItem(
+                                text = { Text("Add pause tile") },
+                                onClick = { menuOpen = false; onAddPauseTile() },
                             )
                         }
                         DropdownMenuItem(
