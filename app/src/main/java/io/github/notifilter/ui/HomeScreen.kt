@@ -211,6 +211,15 @@ private fun AccessCard(onOpenAccessSettings: () -> Unit) {
                     "\"Allow restricted settings\" first.",
                 style = MaterialTheme.typography.bodyMedium,
             )
+            // Android's consent dialog for notification access lists every capability it bundles
+            // (replying, answering calls, Do Not Disturb), and apps can't change it, so set expectations here.
+            Text(
+                "Android will warn that NotiFilter could reply to messages, answer calls and change " +
+                    "Do Not Disturb. It shows that same warning for every app with notification access. " +
+                    "NotiFilter only uses it to dismiss notifications that match your rules, and it has no " +
+                    "internet permission, so nothing can leave your phone.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
             Button(onClick = onOpenAccessSettings) { Text("Grant access") }
         }
     }
