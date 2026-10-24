@@ -78,8 +78,15 @@ object Store {
         rulesChanged()
     }
 
-    fun deleteRule(id: String) {
-        _rules.update { list -> list.filterNot { it.id == id } }
+    fun deleteRule(id: String) = deleteRules(setOf(id))
+
+    fun deleteRules(ids: Set<String>) {
+        _rules.update { list -> list.filterNot { it.id in ids } }
+        rulesChanged()
+    }
+
+    fun setRulesEnabled(ids: Set<String>, enabled: Boolean) {
+        _rules.update { list -> list.map { if (it.id in ids) it.copy(enabled = enabled) else it } }
         rulesChanged()
     }
 

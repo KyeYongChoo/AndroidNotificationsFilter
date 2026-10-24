@@ -2,9 +2,11 @@ package io.github.notifilter.ui
 
 import android.text.format.DateUtils
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -14,15 +16,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,7 +46,9 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,7 +56,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -98,11 +110,36 @@ fun HomeScreen(
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
     }
 
+    // Rules picked by long-pressing in the Rules tab. Selection mode lasts while anything is selected.
+    var selected by remember { mutableStateOf(emptySet<String>()) }
+    val ruleIds = rules.map { it.id }.toSet()
+    val selection = selected intersect ruleIds
+    val selecting = selection.isNotEmpty()
+    var pendingDelete by remember { mutableStateOf<Set<String>?>(null) }
+    LaunchedEffect(tab) { selected = emptySet() }
+    BackHandler(enabled = selecting) { selected = emptySet() }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("NotiFilter") },
+                navigationIcon = {
+                    if (selecting) {
+                        IconButton(onClick = { selected = emptySet() }) { Icon(Icons.Default.Close, "Cancel selection") }
+                    }
+                },
+                title = { Text(if (selecting) "${selection.size} selected" else "NotiFilter") },
+                colors = if (selecting) {
+                    TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                } else {
+                    TopAppBarDefaults.topAppBarColors()
+                },
                 actions = {
+                    if (selecting) {
+                        if (selection.size < rules.size) {
+                            TextButton(onClick = { selected = ruleIds }) { Text("Select all") }
+                        }
+                        return@TopAppBar
+                    }
                     IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.MoreVert, "More") }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                         if (onAddTile != null) {
@@ -129,6 +166,11 @@ fun HomeScreen(
                             },
                         )
                         DropdownMenuItem(
+                            text = { Text("Delete all rules") },
+                            enabled = rules.isNotEmpty(),
+                            onClick = { menuOpen = false; pendingDelete = ruleIds },
+                        )
+                        DropdownMenuItem(
                             text = { Text("Privacy") },
                             onClick = { menuOpen = false; showPrivacy = true },
                         )
@@ -136,8 +178,21 @@ fun HomeScreen(
                 },
             )
         },
+        bottomBar = {
+            if (selecting) {
+                BottomAppBar {
+                    TextButton(onClick = { Store.setRulesEnabled(selection, true); selected = emptySet() }) { Text("Turn on") }
+                    TextButton(onClick = { Store.setRulesEnabled(selection, false); selected = emptySet() }) { Text("Turn off") }
+                    Spacer(Modifier.weight(1f))
+                    TextButton(
+                        onClick = { pendingDelete = selection },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    ) { Text("Delete") }
+                }
+            }
+        },
         floatingActionButton = {
-            if (tab == TAB_RULES) {
+            if (tab == TAB_RULES && !selecting) {
                 FloatingActionButton(onClick = { onEditRule(Rule(), true) }) { Icon(Icons.Default.Add, "Add rule") }
             }
         },
@@ -161,7 +216,12 @@ fun HomeScreen(
                 Tab(selected = tab == TAB_FILTERED, onClick = { onTabChange(TAB_FILTERED) }, text = { Text("Filtered") })
             }
             when (tab) {
-                TAB_RULES -> RulesList(rules, onEdit = { onEditRule(it, false) })
+                TAB_RULES -> RulesList(
+                    rules,
+                    selection = selection,
+                    onEdit = { onEditRule(it, false) },
+                    onToggleSelected = { id -> selected = if (id in selection) selection - id else selection + id },
+                )
                 TAB_RECENT -> NotificationList(
                     items = recent,
                     header = "Tap a notification to make a rule from it",
@@ -179,6 +239,33 @@ fun HomeScreen(
                 )
             }
         }
+    }
+
+    pendingDelete?.let { ids ->
+        val all = ids.size == rules.size && ids.size > 1
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = {
+                Text(
+                    when {
+                        all -> "Delete all ${ids.size} rules?"
+                        ids.size == 1 -> "Delete this rule?"
+                        else -> "Delete ${ids.size} rules?"
+                    }
+                )
+            },
+            text = { Text(if (all) "This can't be undone. To keep a copy, use Export rules first." else "This can't be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        Store.deleteRules(ids)
+                        pendingDelete = null
+                        selected = emptySet()
+                    },
+                ) { Text("Delete") }
+            },
+            dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Cancel") } },
+        )
     }
 
     if (showPrivacy) {
@@ -228,7 +315,12 @@ private fun AccessCard(onOpenAccessSettings: () -> Unit) {
 }
 
 @Composable
-private fun RulesList(rules: List<Rule>, onEdit: (Rule) -> Unit) {
+private fun RulesList(
+    rules: List<Rule>,
+    selection: Set<String>,
+    onEdit: (Rule) -> Unit,
+    onToggleSelected: (id: String) -> Unit,
+) {
     if (rules.isEmpty()) {
         EmptyText(
             "No rules yet. Tap + to add one, or pick a notification from the Recent tab " +
@@ -237,13 +329,47 @@ private fun RulesList(rules: List<Rule>, onEdit: (Rule) -> Unit) {
         return
     }
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
+    val selecting = selection.isNotEmpty()
     LazyColumn(
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 88.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        // Long-press is hard to discover, so say it's there once there's more than one rule to select.
+        if (rules.size > 1 && !selecting) {
+            item(key = "hint") {
+                Text(
+                    "Long-press a rule to select several",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         items(rules, key = { it.id }) { rule ->
-            Card(onClick = { onEdit(rule) }, Modifier.fillMaxWidth()) {
+            val isSelected = rule.id in selection
+            Card(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(CardDefaults.shape)
+                    .combinedClickable(
+                        onClick = { if (selecting) onToggleSelected(rule.id) else onEdit(rule) },
+                        onLongClickLabel = "Select",
+                        onLongClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onToggleSelected(rule.id)
+                        },
+                    ),
+                colors = if (isSelected) {
+                    CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                } else {
+                    CardDefaults.cardColors()
+                },
+            ) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (selecting) {
+                        Checkbox(checked = isSelected, onCheckedChange = { onToggleSelected(rule.id) })
+                        Spacer(Modifier.width(8.dp))
+                    }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(rule.displayName, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         val app = rule.packageName.takeIf { it.isNotBlank() }
@@ -257,7 +383,10 @@ private fun RulesList(rules: List<Rule>, onEdit: (Rule) -> Unit) {
                             Text("Invalid rule — not applied", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                         }
                     }
-                    Switch(checked = rule.enabled, onCheckedChange = { Store.saveRule(rule.copy(enabled = it)) })
+                    // Hidden while selecting so a stray tap can't flip a rule; use Turn on / Turn off instead.
+                    if (!selecting) {
+                        Switch(checked = rule.enabled, onCheckedChange = { Store.saveRule(rule.copy(enabled = it)) })
+                    }
                 }
             }
         }
