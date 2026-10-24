@@ -5,6 +5,7 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -51,6 +52,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -199,16 +201,19 @@ fun HomeScreen(
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
             if (!hasAccess) AccessCard(onOpenAccessSettings)
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    if (enabled) "Filtering is on" else "Filtering is paused",
-                    Modifier.weight(1f),
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Switch(checked = enabled, onCheckedChange = Store::setEnabled)
+            // Hidden while selecting rules, so the master switch isn't mistaken for a bulk action.
+            AnimatedVisibility(visible = !selecting) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        if (enabled) "Filtering is on" else "Filtering is paused",
+                        Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Switch(checked = enabled, onCheckedChange = Store::setEnabled)
+                }
             }
             PrimaryTabRow(selectedTabIndex = tab) {
                 Tab(selected = tab == TAB_RULES, onClick = { onTabChange(TAB_RULES) }, text = { Text("Rules") })
@@ -336,10 +341,12 @@ private fun RulesList(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         // Long-press is hard to discover, so say it's there once there's more than one rule to select.
-        if (rules.size > 1 && !selecting) {
+        // The hint stays in the list while selecting (just reworded): removing and re-adding it would
+        // re-insert it above the rule the list is anchored to, leaving it half scrolled off.
+        if (rules.size > 1) {
             item(key = "hint") {
                 Text(
-                    "Long-press a rule to select several",
+                    if (selecting) "Tap rules to select or unselect them" else "Long-press a rule to select several",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -385,7 +392,15 @@ private fun RulesList(
                     }
                     // Hidden while selecting so a stray tap can't flip a rule; use Turn on / Turn off instead.
                     if (!selecting) {
-                        Switch(checked = rule.enabled, onCheckedChange = { Store.saveRule(rule.copy(enabled = it)) })
+                        // LazyColumn reuses rows (even a rule's own row from before it was turned on or
+                        // off off-screen), and the Material 3 switch keeps its thumb animation across
+                        // that, so it would visibly slide from the old state. Remembered values are
+                        // reset when a row is reused, so keying on one gives reused rows a fresh switch
+                        // while a switch the user flips still slides.
+                        val switchInstance = remember { Any() }
+                        key(switchInstance) {
+                            Switch(checked = rule.enabled, onCheckedChange = { Store.saveRule(rule.copy(enabled = it)) })
+                        }
                     }
                 }
             }
