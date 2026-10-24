@@ -68,6 +68,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.notifilter.AppLabels
+import io.github.notifilter.FilterListenerService
 import io.github.notifilter.NotificationInfo
 import io.github.notifilter.Rule
 import io.github.notifilter.Store
@@ -256,6 +257,15 @@ fun HomeScreen(
                     onClick = { onEditRule(ruleFrom(it), true) },
                     selection = selection,
                     onToggleSelected = toggleSelected,
+                    // Brings back anything still in the notification shade, e.g. after removing it by mistake.
+                    onRefresh = {
+                        val message = if (FilterListenerService.reapply()) {
+                            "Reloaded from your notification shade"
+                        } else {
+                            "Turn on notification access first"
+                        }
+                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                    },
                 )
                 TAB_FILTERED -> NotificationList(
                     items = filtered,
@@ -454,9 +464,10 @@ private fun NotificationList(
     selection: Set<String>,
     onToggleSelected: (key: String) -> Unit,
     onOpen: ((NotificationInfo) -> Unit)? = null,
+    onRefresh: (() -> Unit)? = null,
 ) {
     if (items.isEmpty()) {
-        EmptyText(empty)
+        EmptyText(empty, onRefresh)
         return
     }
     val sorted = remember(items) { items.sortedByDescending { it.postTime } }
@@ -473,7 +484,10 @@ private fun NotificationList(
                 Modifier.weight(1f),
                 style = MaterialTheme.typography.bodySmall,
             )
-            if (!selecting) TextButton(onClick = onClear) { Text("Clear") }
+            if (!selecting) {
+                if (onRefresh != null) TextButton(onClick = onRefresh) { Text("Refresh") }
+                TextButton(onClick = onClear) { Text("Clear") }
+            }
         }
         HorizontalDivider()
         LazyColumn {
@@ -546,9 +560,11 @@ private fun OpenButton(n: NotificationInfo, onClick: () -> Unit) {
 }
 
 @Composable
-private fun EmptyText(text: String) {
+private fun EmptyText(text: String, onRefresh: (() -> Unit)? = null) {
     Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Spacer(Modifier.height(32.dp))
         Text(text, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // After an accidental Clear, the list is empty but the notifications may still be in the shade.
+        if (onRefresh != null) TextButton(onClick = onRefresh) { Text("Refresh") }
     }
 }

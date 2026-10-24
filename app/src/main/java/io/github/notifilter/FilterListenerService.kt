@@ -128,9 +128,14 @@ class FilterListenerService : NotificationListenerService() {
         @Volatile
         private var instance: FilterListenerService? = null
 
-        /** Re-runs the rules over everything currently in the notification shade. */
-        fun reapply() {
-            instance?.reapplyToActive()
+        /**
+         * Re-runs the rules over everything currently in the notification shade, which also puts
+         * unfiltered ones back in the Recent list. Returns false if the listener isn't connected.
+         */
+        fun reapply(): Boolean {
+            val service = instance ?: return false
+            service.reapplyToActive()
+            return true
         }
     }
 }
