@@ -69,7 +69,7 @@ class FilterListenerService : NotificationListenerService() {
             return
         }
         dismiss(sbn)
-        Store.recordFiltered(info.copy(ruleId = rule.id, ruleName = rule.displayName))
+        Store.recordFiltered(info.copy(ruleId = rule.id, ruleName = rule.displayName), sbn.notification.contentIntent)
     }
 
     private fun dismiss(sbn: StatusBarNotification) {
