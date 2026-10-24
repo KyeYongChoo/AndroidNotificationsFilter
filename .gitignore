@@ -10,3 +10,6 @@ captures/
 *.keystore
 keystore.properties
 *.mp4
+# Raw video takes and their timing logs
+screenshots/raw/take*
+__pycache__/

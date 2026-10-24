@@ -1,0 +1,1 @@
+Auto-dismiss notifications with regex rules. No internet permission.
