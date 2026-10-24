@@ -79,6 +79,7 @@ Install a debug build with `adb install app/build/outputs/apk/debug/app-debug.ap
 - **Ongoing notifications** (music players, navigation, foreground services) can't be cancelled by notification listeners. NotiFilter hides them by snoozing them for 24 hours and re-filters them when they come back. This works best-effort and depends on the OS version.
 - **Group summary** notifications aren't matched directly, because dismissing a summary would also remove non-matching notifications in the same group.
 - A dismissed notification may still make its sound or vibration, because Android alerts at the same moment it tells listeners about the notification. To silence an app entirely, turn off its notification channel in system settings.
+- **One-time codes may be hidden from NotiFilter on some phones.** To stop malware stealing login codes, some phones on Android 15 and newer give notification-access apps a censored copy of notifications that look like they contain a one-time code. On those phones, rules that match the code text (like the verification-code example above) may not catch them. Rules that match on the app or the title still work. In testing on a vivo phone running Android 16, codes were not hidden.
 
 ## License
 
