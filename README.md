@@ -23,7 +23,13 @@ A free, open-source Android app that automatically dismisses notifications match
 
 ### Writing patterns
 
-Patterns use [Java regular expressions](https://developer.android.com/reference/java/util/regex/Pattern) and match **anywhere** in the text. "Ignore case" is on by default.
+How a rule decides whether to hide a notification:
+
+- **All filled-in conditions must match.** A rule has up to three: **App** (an exact app), **Title** and **Text**. Blank conditions are ignored.
+- **Title and Text match anywhere.** They're [Java regular expressions](https://developer.android.com/reference/java/util/regex/Pattern), so `sale` matches "Big SALE today". To match the whole field instead, wrap the pattern in `^` and `$`. "Ignore case" is on by default.
+- **Title** is the notification's title, or its expanded title if it only has that.
+- **Text** is everything else, one part per line: the text, expanded text, sub-text, inbox lines and messaging-style messages. A pattern can match within any of those lines. `^` and `$` mean the start and end of the whole block, not of each line (start the pattern with `(?m)` to change that), and `.` doesn't match across lines.
+- **Rules made from a notification** (from the Recent tab or the Quick Settings tile) start as: the same app, the exact title (`^…$`), and the text's first line matching anywhere. Every number becomes `\d+` (any number), so a rule made from "3 new messages" also catches "12 new messages", and one made from a code message catches the next code. Loosen it further before saving if you like.
 
 | Goal | App | Title | Text |
 |---|---|---|---|
@@ -32,8 +38,6 @@ Patterns use [Java regular expressions](https://developer.android.com/reference/
 | Hide "X liked your photo" | `com.instagram.android` | | `liked your (photo\|post)` |
 | Hide a title exactly | | `^Backup complete$` | |
 | Hide verification codes except from your bank | | | `^(?!.*MyBank).*\bcode\b` |
-
-The "Text" field is checked against the notification's text, expanded text, sub-text, inbox lines and messaging-style messages.
 
 ## Privacy, and how to check it yourself
 

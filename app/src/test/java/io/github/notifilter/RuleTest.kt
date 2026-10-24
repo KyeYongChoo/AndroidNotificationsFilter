@@ -56,4 +56,34 @@ class RuleTest {
         assertTrue(rule.matches(notification(title = title)))
         assertFalse(rule.matches(notification(title = "Order #12 (shipped) costs $3X50 [x]?")))
     }
+
+    @Test
+    fun patternAnyNumberLetsNumbersChangeButEscapesTheRest() {
+        assertEquals("\\d+ new messages", patternAnyNumber("3 new messages"))
+        assertEquals("Order #\\d+ costs \\$\\d+\\.\\d+", patternAnyNumber("Order #12 costs $3.50"))
+        assertEquals("code \\d+", patternAnyNumber("code 482913"))
+        assertEquals("\\d+", patternAnyNumber("2026"))
+        assertEquals("no digits here\\.", patternAnyNumber("no digits here."))
+    }
+
+    @Test
+    fun ruleFromMatchesTheSameNotificationWithDifferentNumbers() {
+        val original = notification(title = "3 new messages", text = "Your code is 482913\nDon't share it")
+        val rule = ruleFrom(original)
+        assertEquals("^\\d+ new messages$", rule.titlePattern)
+        assertEquals("Your code is \\d+", rule.textPattern)
+        assertEquals("com.shop", rule.packageName)
+        assertTrue(rule.matches(original))
+        assertTrue(rule.matches(notification(title = "12 new messages", text = "Your code is 731605")))
+        assertFalse(rule.matches(notification(title = "12 new messages", text = "Your order shipped")))
+        assertFalse(rule.matches(notification(title = "New messages: 12", text = "Your code is 731605")))
+    }
+
+    @Test
+    fun ruleFromWithoutTitleUsesTextOnly() {
+        val rule = ruleFrom(notification(text = "Backup (1 of 2) done"))
+        assertEquals("", rule.titlePattern)
+        assertEquals("Backup \\(\\d+ of \\d+\\) done", rule.textPattern)
+        assertEquals("Shop", rule.name)
+    }
 }

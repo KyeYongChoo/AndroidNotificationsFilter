@@ -71,7 +71,7 @@ import io.github.notifilter.AppLabels
 import io.github.notifilter.NotificationInfo
 import io.github.notifilter.Rule
 import io.github.notifilter.Store
-import io.github.notifilter.escapeRegex
+import io.github.notifilter.ruleFrom
 import org.json.JSONException
 
 const val TAB_RULES = 0
@@ -552,11 +552,3 @@ private fun EmptyText(text: String) {
         Text(text, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
-
-/** Starts a rule that matches this exact notification; the user usually generalises it. */
-private fun ruleFrom(n: NotificationInfo) = Rule(
-    name = n.title.ifBlank { n.appLabel }.take(60),
-    packageName = n.packageName,
-    titlePattern = if (n.title.isNotBlank()) "^${escapeRegex(n.title)}$" else "",
-    textPattern = if (n.title.isBlank() && n.text.isNotBlank()) escapeRegex(n.text.lineSequence().first()) else "",
-)

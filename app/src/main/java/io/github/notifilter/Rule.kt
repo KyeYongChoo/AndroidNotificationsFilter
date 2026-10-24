@@ -76,6 +76,25 @@ fun escapeRegex(literal: String): String = buildString {
     }
 }
 
+private val DIGITS = Regex("\\d+")
+
+/**
+ * Like [escapeRegex], but each number in [literal] matches any number, so a pattern made from
+ * "3 new messages" also catches "12 new messages", and one made from a code message catches the next code.
+ */
+fun patternAnyNumber(literal: String): String = literal.split(DIGITS).joinToString("\\d+") { escapeRegex(it) }
+
+/**
+ * Starts a rule that matches this notification: same app, exact title, and text containing its first
+ * line, with numbers allowed to change. The user can generalise it further before saving.
+ */
+fun ruleFrom(n: NotificationInfo) = Rule(
+    name = n.title.ifBlank { n.appLabel }.take(60),
+    packageName = n.packageName,
+    titlePattern = if (n.title.isNotBlank()) "^${patternAnyNumber(n.title)}$" else "",
+    textPattern = if (n.text.isNotBlank()) patternAnyNumber(n.text.lineSequence().first()) else "",
+)
+
 /** A snapshot of a notification's matchable content. */
 data class NotificationInfo(
     val key: String,
