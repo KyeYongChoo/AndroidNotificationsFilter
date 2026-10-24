@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Scripts that run on the phone must keep Unix line endings, or its shell sees a stray CR.
+*.sh text eol=lf

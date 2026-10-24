@@ -1,0 +1,25 @@
+NotiFilter automatically dismisses the notifications you don't want, using rules you write. It can't send your data anywhere, because it has no internet permission at all.
+
+HOW IT WORKS
+• See an annoying notification? Open the app, tap it in the Recent tab and save the pre-filled rule. It's dismissed straight away, along with every future notification that matches.
+• Rules match on the app, the title, the text, or any combination. A rule made from a notification lets numbers vary, so one made from "3 new messages" also catches "12 new messages". Edit it with regular expressions when you need more.
+• A live preview shows which of your recent notifications a rule would catch, while you edit it.
+• The filtered history shows what was dismissed and which rule caught it, with an Open button for the one you actually needed.
+• Add the "Filter a notification" Quick Settings tile to jump straight to the Recent tab from your notification shade.
+• A second tile pauses all filtering with one tap.
+• Export and import your rules as a file to move them between phones.
+
+PRIVATE BY DESIGN
+Your notifications hold your messages, codes and alerts. NotiFilter:
+• has no internet permission, so Android itself blocks it from going online
+• has no ads, analytics, crash reporting or tracking
+• keeps everything in private storage, excluded from cloud backups
+• is open source (GPL-3.0), so anyone can check these claims
+
+GOOD TO KNOW
+• When you grant access, Android will warn that the app could reply to messages, answer calls and change Do Not Disturb. That's Android's standard wording for every app with notification access, and apps can't change it. NotiFilter only uses the access to dismiss notifications that match your rules.
+• Ongoing notifications (music, navigation) can't be dismissed by any app. NotiFilter hides them for 24 hours instead, on a best-effort basis.
+• A filtered notification may still play its sound, because Android alerts at the same moment it tells NotiFilter. To silence an app completely, turn off its notifications in system settings.
+• To protect login codes, some phones on Android 15 and newer hide one-time codes from apps with notification access. There, rules that match the code text may not catch them, but rules that match the app or title still work.
+
+Requires Android 8.0 or newer.
