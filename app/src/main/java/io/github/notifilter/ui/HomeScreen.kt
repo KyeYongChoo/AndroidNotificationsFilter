@@ -161,7 +161,7 @@ fun HomeScreen(
                         }
                         if (onAddPauseTile != null) {
                             DropdownMenuItem(
-                                text = { Text("Add pause tile") },
+                                text = { Text("Add Pause tile") },
                                 onClick = { menuOpen = false; onAddPauseTile() },
                             )
                         }
@@ -436,7 +436,7 @@ private fun RulesList(
 @Composable
 private fun PatternLine(label: String, pattern: String) {
     Text(
-        "$label: /$pattern/",
+        "$label: $pattern",
         style = MaterialTheme.typography.bodySmall,
         fontFamily = FontFamily.Monospace,
         maxLines = 2,
