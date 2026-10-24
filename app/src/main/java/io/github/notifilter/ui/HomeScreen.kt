@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -39,6 +40,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
@@ -69,7 +71,7 @@ import io.github.notifilter.AppLabels
 import io.github.notifilter.NotificationInfo
 import io.github.notifilter.Rule
 import io.github.notifilter.Store
-import io.github.notifilter.escapeRegex
+import io.github.notifilter.ruleFrom
 import org.json.JSONException
 
 const val TAB_RULES = 0
@@ -112,11 +114,18 @@ fun HomeScreen(
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
     }
 
-    // Rules picked by long-pressing in the Rules tab. Selection mode lasts while anything is selected.
+    // Items picked by long-pressing in the current tab: rule ids on Rules, notification keys on Recent
+    // and Filtered. Selection mode lasts while anything is selected.
     var selected by remember { mutableStateOf(emptySet<String>()) }
     val ruleIds = rules.map { it.id }.toSet()
-    val selection = selected intersect ruleIds
+    val selectable = when (tab) {
+        TAB_RULES -> ruleIds
+        TAB_RECENT -> recent.map { it.key }.toSet()
+        else -> filtered.map { it.key }.toSet()
+    }
+    val selection = selected intersect selectable
     val selecting = selection.isNotEmpty()
+    val toggleSelected = { id: String -> selected = if (id in selection) selection - id else selection + id }
     var pendingDelete by remember { mutableStateOf<Set<String>?>(null) }
     LaunchedEffect(tab) { selected = emptySet() }
     BackHandler(enabled = selecting) { selected = emptySet() }
@@ -137,8 +146,8 @@ fun HomeScreen(
                 },
                 actions = {
                     if (selecting) {
-                        if (selection.size < rules.size) {
-                            TextButton(onClick = { selected = ruleIds }) { Text("Select all") }
+                        if (selection.size < selectable.size) {
+                            TextButton(onClick = { selected = selectable }) { Text("Select all") }
                         }
                         return@TopAppBar
                     }
@@ -181,7 +190,7 @@ fun HomeScreen(
             )
         },
         bottomBar = {
-            if (selecting) {
+            if (selecting && tab == TAB_RULES) {
                 BottomAppBar {
                     TextButton(onClick = { Store.setRulesEnabled(selection, true); selected = emptySet() }) { Text("Turn on") }
                     TextButton(onClick = { Store.setRulesEnabled(selection, false); selected = emptySet() }) { Text("Turn off") }
@@ -190,6 +199,18 @@ fun HomeScreen(
                         onClick = { pendingDelete = selection },
                         colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                     ) { Text("Delete") }
+                }
+            } else if (selecting) {
+                // Only NotiFilter's own list changes; the label says so, since the notifications
+                // themselves may still be in the shade.
+                BottomAppBar {
+                    Spacer(Modifier.weight(1f))
+                    TextButton(
+                        onClick = {
+                            if (tab == TAB_RECENT) Store.removeRecent(selection) else Store.removeFiltered(selection)
+                            selected = emptySet()
+                        },
+                    ) { Text("Remove from list") }
                 }
             }
         },
@@ -201,7 +222,7 @@ fun HomeScreen(
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
             if (!hasAccess) AccessCard(onOpenAccessSettings)
-            // Hidden while selecting rules, so the master switch isn't mistaken for a bulk action.
+            // Hidden while selecting, so the master switch isn't mistaken for a bulk action.
             AnimatedVisibility(visible = !selecting) {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
@@ -225,21 +246,25 @@ fun HomeScreen(
                     rules,
                     selection = selection,
                     onEdit = { onEditRule(it, false) },
-                    onToggleSelected = { id -> selected = if (id in selection) selection - id else selection + id },
+                    onToggleSelected = toggleSelected,
                 )
                 TAB_RECENT -> NotificationList(
                     items = recent,
-                    header = "Tap a notification to make a rule from it",
+                    header = "Tap a notification to make a rule from it, or long-press to select",
                     empty = if (hasAccess) "Notifications you receive will show up here." else "Grant notification access first.",
                     onClear = Store::clearRecent,
                     onClick = { onEditRule(ruleFrom(it), true) },
+                    selection = selection,
+                    onToggleSelected = toggleSelected,
                 )
                 TAB_FILTERED -> NotificationList(
                     items = filtered,
-                    header = "${filtered.size} filtered · tap one to see its rule",
+                    header = "${filtered.size} filtered · tap one to see its rule, or long-press to select",
                     empty = "Notifications dismissed by your rules will show up here.",
                     onClear = Store::clearFiltered,
                     onClick = { n -> rules.firstOrNull { it.id == n.ruleId }?.let { onEditRule(it, false) } },
+                    selection = selection,
+                    onToggleSelected = toggleSelected,
                     onOpen = onOpenNotification,
                 )
             }
@@ -426,6 +451,8 @@ private fun NotificationList(
     empty: String,
     onClear: () -> Unit,
     onClick: (NotificationInfo) -> Unit,
+    selection: Set<String>,
+    onToggleSelected: (key: String) -> Unit,
     onOpen: ((NotificationInfo) -> Unit)? = null,
 ) {
     if (items.isEmpty()) {
@@ -433,18 +460,43 @@ private fun NotificationList(
         return
     }
     val sorted = remember(items) { items.sortedByDescending { it.postTime } }
+    val haptics = LocalHapticFeedback.current
+    val selecting = selection.isNotEmpty()
     Column {
-        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(header, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-            TextButton(onClick = onClear) { Text("Clear") }
+        // A fixed minimum height so the header doesn't shrink when Clear hides during selection.
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(start = 16.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                if (selecting) "Tap notifications to select or unselect them" else header,
+                Modifier.weight(1f),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            if (!selecting) TextButton(onClick = onClear) { Text("Clear") }
         }
         HorizontalDivider()
         LazyColumn {
             items(sorted, key = { it.key }) { n ->
+                val isSelected = n.key in selection
                 NotificationRow(
                     n,
-                    Modifier.clickable { onClick(n) },
-                    trailing = onOpen?.let { open -> { OpenButton(n, onClick = { open(n) }) } },
+                    Modifier.combinedClickable(
+                        onClick = { if (selecting) onToggleSelected(n.key) else onClick(n) },
+                        onLongClickLabel = "Select",
+                        onLongClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onToggleSelected(n.key)
+                        },
+                    ),
+                    selected = isSelected,
+                    leading = if (selecting) {
+                        { Checkbox(checked = isSelected, onCheckedChange = { onToggleSelected(n.key) }) }
+                    } else {
+                        null
+                    },
+                    // Hidden while selecting so a stray tap can't open an app.
+                    trailing = onOpen?.takeIf { !selecting }?.let { open -> { OpenButton(n, onClick = { open(n) }) } },
                 )
                 HorizontalDivider()
             }
@@ -453,9 +505,21 @@ private fun NotificationList(
 }
 
 @Composable
-fun NotificationRow(n: NotificationInfo, modifier: Modifier = Modifier, trailing: (@Composable () -> Unit)? = null) {
+fun NotificationRow(
+    n: NotificationInfo,
+    modifier: Modifier = Modifier,
+    selected: Boolean = false,
+    leading: (@Composable () -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
+) {
     ListItem(
         modifier = modifier,
+        colors = if (selected) {
+            ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+        } else {
+            ListItemDefaults.colors()
+        },
+        leadingContent = leading,
         trailingContent = trailing,
         overlineContent = {
             val time = DateUtils.getRelativeTimeSpanString(n.postTime).toString()
@@ -488,11 +552,3 @@ private fun EmptyText(text: String) {
         Text(text, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
-
-/** Starts a rule that matches this exact notification; the user usually generalises it. */
-private fun ruleFrom(n: NotificationInfo) = Rule(
-    name = n.title.ifBlank { n.appLabel }.take(60),
-    packageName = n.packageName,
-    titlePattern = if (n.title.isNotBlank()) "^${escapeRegex(n.title)}$" else "",
-    textPattern = if (n.title.isBlank() && n.text.isNotBlank()) escapeRegex(n.text.lineSequence().first()) else "",
-)
