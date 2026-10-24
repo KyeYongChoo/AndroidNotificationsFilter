@@ -151,9 +151,12 @@ fun RuleEditor(
                 Switch(checked = enabled, onCheckedChange = { enabled = it })
             }
             Text(
-                "Patterns are regular expressions matched anywhere in the text — use ^ and $ to " +
-                    "anchor, .* for \"anything\", and \\d+ for a number. Blank fields are ignored; " +
-                    "every filled-in field must match.",
+                "A rule hides a notification when every filled-in box matches. Empty boxes are ignored.\n\n" +
+                    "Title and Text only need to appear somewhere in the notification, so \"sale\" also " +
+                    "catches \"Big sale today\". Capital letters don't matter while Ignore case is ticked.\n\n" +
+                    "Some symbols have special meanings: ^ at the start means \"starts with\", $ at the end " +
+                    "means \"ends with\", .* means \"anything\", and \\d+ means \"any number\". A \\ in front " +
+                    "of a symbol, like \\. or \\?, means the symbol itself.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
