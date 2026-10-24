@@ -122,6 +122,19 @@ object Store {
         write(RECENT_FILE, "[]")
     }
 
+    /** Removes the given entries (by notification key) from the Recent list. */
+    fun removeRecent(keys: Set<String>) {
+        _recent.update { list -> list.filterNot { it.key in keys } }
+        write(RECENT_FILE, notificationsToJson(_recent.value).toString())
+    }
+
+    /** Removes the given entries (by notification key) from the Filtered list. */
+    fun removeFiltered(keys: Set<String>) {
+        _filtered.update { list -> list.filterNot { it.key in keys } }
+        synchronized(tapActions) { keys.forEach(tapActions::remove) }
+        write(FILTERED_FILE, notificationsToJson(_filtered.value).toString())
+    }
+
     fun clearFiltered() {
         _filtered.value = emptyList()
         synchronized(tapActions) { tapActions.clear() }

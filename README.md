@@ -9,7 +9,7 @@ A free, open-source Android app that automatically dismisses notifications match
 - **Create rules from the notification shade.** Add the **"Filter a notification"** Quick Settings tile. Pull down the shade, tap the tile, pick the notification you're annoyed by, and you get a pre-filled rule. Save it and the notification is dismissed straight away.
 - **Pause tile.** A second **"Notification filter"** tile turns all filtering on or off. On Android 13+ add it with **⋮ → Add pause tile**; on older versions, edit your Quick Settings panel and drag it in.
 - **Live preview.** While you edit a rule, you see which of your recent notifications it would have caught.
-- **Filtered history.** See what was dismissed and which rule did it. Tap **Open** to see one you needed after all: recent ones open exactly where the notification would have taken you, older ones open their app.
+- **Filtered history.** See what was dismissed and which rule did it. Tap **Open** to see one you needed after all: recent ones open exactly where the notification would have taken you, older ones open their app. Long-press entries in Recent or Filtered to remove just those from the list.
 - **Export and import** your rules as JSON. Cloud backup is deliberately off (see below), so use this to move rules between phones.
 - Material You design with a dark theme. Supports Android 8.0 (API 26) and newer.
 
