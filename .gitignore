@@ -13,3 +13,5 @@ keystore.properties
 # Raw video takes and their timing logs
 screenshots/raw/take*
 __pycache__/
+# Output of the reproducibility check
+repro/out/
