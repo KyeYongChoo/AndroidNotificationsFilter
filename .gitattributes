@@ -3,3 +3,6 @@
 
 # Scripts that run on the phone must keep Unix line endings, or its shell sees a stray CR.
 *.sh text eol=lf
+
+# Windows batch files need CRLF; cmd.exe can mis-jump to labels in LF-only .bat files.
+*.bat text eol=crlf
