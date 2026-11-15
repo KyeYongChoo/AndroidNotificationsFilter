@@ -15,6 +15,8 @@ A free, open-source Android app that automatically dismisses notifications match
 
 ## Using it
 
+The first time you open the app, a short animated tutorial walks through these steps. Reopen it any time from **⋮ → How it works**.
+
 1. Install and open the app, then tap **Grant access** and turn on NotiFilter in *Notification access*.
    - Android will warn that the app could reply to messages, answer calls and change Do Not Disturb. That's Android's standard wording for every app with notification access, and apps can't change it. NotiFilter only uses the access to dismiss notifications that match your rules, and it has no internet permission (see [Privacy](#privacy-and-how-to-check-it-yourself)).
    - If you sideloaded the APK (installed it outside the Play Store), Android 13+ may say this is a *restricted setting*. Go to *Settings → Apps → NotiFilter → ⋮ → Allow restricted settings* and try again.

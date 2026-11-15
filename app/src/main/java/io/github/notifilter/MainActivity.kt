@@ -19,6 +19,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.annotation.DrawableRes
 import androidx.annotation.RequiresApi
 import androidx.annotation.StringRes
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -31,12 +32,15 @@ import io.github.notifilter.ui.RuleEditor
 import io.github.notifilter.ui.TAB_RECENT
 import io.github.notifilter.ui.TileHint
 import io.github.notifilter.ui.TileHintDialog
+import io.github.notifilter.ui.WelcomeDialog
 
 class MainActivity : ComponentActivity() {
     private var hasAccess by mutableStateOf(false)
     private var tab by mutableIntStateOf(0)
     private var editing by mutableStateOf<Editing?>(null)
     private var tileHint by mutableStateOf<TileHint?>(null)
+    /** Reopened from the menu; first-time users get the tutorial without asking (see [Store.tutorialSeen]). */
+    private var replayingTutorial by mutableStateOf(false)
 
     /** Opened from the Quick Settings tile: finish after saving so the user lands back where they were. */
     private var fromTile = false
@@ -49,6 +53,7 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
         setContent {
             NotiFilterTheme {
+                val tutorialSeen by Store.tutorialSeen.collectAsState()
                 val current = editing
                 if (current == null) {
                     HomeScreen(
@@ -79,6 +84,7 @@ class MainActivity : ComponentActivity() {
                             null
                         },
                         onOpenNotification = ::openFiltered,
+                        onShowTutorial = { replayingTutorial = true },
                     )
                 } else {
                     BackHandler { editing = null }
@@ -96,6 +102,14 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 tileHint?.let { TileHintDialog(it, onDismiss = { tileHint = null }) }
+                if (!tutorialSeen || replayingTutorial) {
+                    WelcomeDialog(
+                        onDismiss = {
+                            Store.setTutorialSeen()
+                            replayingTutorial = false
+                        },
+                    )
+                }
             }
         }
     }

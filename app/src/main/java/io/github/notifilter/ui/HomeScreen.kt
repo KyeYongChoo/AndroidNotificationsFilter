@@ -90,6 +90,7 @@ fun HomeScreen(
     onAddTile: (() -> Unit)?,
     onAddPauseTile: (() -> Unit)?,
     onOpenNotification: (NotificationInfo) -> Unit,
+    onShowTutorial: () -> Unit,
 ) {
     val context = LocalContext.current
     val rules by Store.rules.collectAsState()
@@ -154,6 +155,11 @@ fun HomeScreen(
                     }
                     IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.MoreVert, "More") }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        // First, since the welcome tutorial points here for anyone who wants to see it again.
+                        DropdownMenuItem(
+                            text = { Text("How it works") },
+                            onClick = { menuOpen = false; onShowTutorial() },
+                        )
                         if (onAddTile != null) {
                             DropdownMenuItem(
                                 text = { Text("Add Quick Settings tile") },
