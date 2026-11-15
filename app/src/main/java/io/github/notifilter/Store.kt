@@ -37,6 +37,10 @@ object Store {
     private val _enabled = MutableStateFlow(true)
     val enabled: StateFlow<Boolean> = _enabled
 
+    /** Whether the welcome tutorial has been shown, so it only opens by itself the first time. */
+    private val _tutorialSeen = MutableStateFlow(true)
+    val tutorialSeen: StateFlow<Boolean> = _tutorialSeen
+
     /** Notifications seen recently that were not filtered, newest first. */
     private val _recent = MutableStateFlow<List<NotificationInfo>>(emptyList())
     val recent: StateFlow<List<NotificationInfo>> = _recent
@@ -63,7 +67,11 @@ object Store {
     fun init(context: Context) {
         dir = context.noBackupFilesDir
         _rules.value = read(RULES_FILE) { rulesFromJson(it) } ?: emptyList()
-        _enabled.value = read(SETTINGS_FILE) { JSONObject(it).optBoolean("enabled", true) } ?: true
+        val settings = read(SETTINGS_FILE) { JSONObject(it) }
+        _enabled.value = settings?.optBoolean("enabled", true) ?: true
+        // Installs from before the tutorial existed already have some data, so only brand-new users see it.
+        _tutorialSeen.value = settings?.takeIf { it.has("tutorialSeen") }?.getBoolean("tutorialSeen")
+            ?: listOf(SETTINGS_FILE, RULES_FILE, RECENT_FILE, FILTERED_FILE).any { File(dir, it).exists() }
         _recent.value = read(RECENT_FILE) { notificationsFromJson(JSONArray(it)) } ?: emptyList()
         _filtered.value = read(FILTERED_FILE) { notificationsFromJson(JSONArray(it)) } ?: emptyList()
         compiled = compileAll(_rules.value)
@@ -92,8 +100,19 @@ object Store {
 
     fun setEnabled(enabled: Boolean) {
         _enabled.value = enabled
-        write(SETTINGS_FILE, JSONObject().put("enabled", enabled).toString())
+        writeSettings()
         if (enabled) FilterListenerService.reapply()
+    }
+
+    fun setTutorialSeen() {
+        if (_tutorialSeen.value) return
+        _tutorialSeen.value = true
+        writeSettings()
+    }
+
+    private fun writeSettings() {
+        val settings = JSONObject().put("enabled", _enabled.value).put("tutorialSeen", _tutorialSeen.value)
+        write(SETTINGS_FILE, settings.toString())
     }
 
     fun setListenerConnected(connected: Boolean) {
